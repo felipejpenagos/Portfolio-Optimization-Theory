@@ -1,20 +1,123 @@
-# Fintech545_RiskParity_MVO
-Companion repository for *Portfolio Optimization: Mean Variance 
-Optimization vs Risk Parity — An Analysis of Tradeoffs Between 
-Modern Portfolio Theory and Potential Improvements*  
-F. J. Penagos, Duke University Pratt School of Engineering, 
-F545 Quantitative Risk Management, April 2026.
-- `QRM_Paper_Theory.ipynb` — Jupyter notebook implementing the 
-  rolling walk-forward backtest, parameter estimation, and 
-  figure generation for MVO, ERC, and RC-MVO under frictionless 
-  conditions.
-- `QCAPI_report_1.pdf` — QuantConnect tearsheet for MVO 
-  under realistic execution.
-- `QCAPI_report_2.pdf` — QuantConnect tearsheet for ERC 
-  under realistic execution.
-- `QCAPI_report_3.pdf` — QuantConnect tearsheet for RC-MVO 
-  under realistic execution.
-- `fig_*.png` — figures produced from the notebook and 
-  embedded in the paper.
-- `mvo_*.png`, `erc_*.png`, `rc_mvo_*.png` — QuantConnect 
-  equity curves and overview screenshots.
+<div align="center">
+
+# Modern Portfolio Optimization Approaches
+
+### Mean-Variance, Risk Parity, and a Risk-Constrained Hybrid
+
+[![Paper](https://img.shields.io/badge/Paper-PDF-B31B1B?style=flat-square&logo=adobeacrobatreader&logoColor=white)](MPT_Alternatives_Research.pdf)
+[![Duke](https://img.shields.io/badge/Duke-FINTECH%20545-00539B?style=flat-square)](#about)
+[![QuantConnect](https://img.shields.io/badge/Validated%20on-QuantConnect-F5AE29?style=flat-square)](#realistic-execution-quantconnect)
+[![Notebook](https://img.shields.io/badge/Jupyter-notebook-F37626?style=flat-square&logo=jupyter&logoColor=white)](QRM_Paper_Theory.ipynb)
+
+**F. J. Penagos** · Duke University, Pratt School of Engineering · May 2026
+
+<img src="fig_3d_sharpe_surface.png" width="62%" alt="MVO, ERC, and RC-MVO in risk–return–Sharpe space">
+
+**[Read the paper (PDF, 15 pages)](MPT_Alternatives_Research.pdf)**
+
+</div>
+
+---
+
+## Abstract
+
+Mean-variance optimization (MVO) and risk parity reflect two different beliefs: that expected returns can be estimated well enough to exploit, or that only risk can. This paper derives both frameworks from first principles, tests them in an 18-year walk-forward backtest on seven ETFs, and proposes a hybrid, **Risk-Constrained MVO (RC-MVO)**, that keeps MVO's return-seeking objective but caps each asset's share of portfolio risk.
+
+Without trading frictions, RC-MVO posts the highest Sharpe ratio and the smallest drawdown of any strategy tested. Re-run in QuantConnect with spreads and slippage, it still beats pure MVO on every metric, but equal risk contribution wins outright, because the noisy sample mean costs more than it adds.
+
+## The hybrid
+
+RC-MVO maximizes the Sharpe ratio subject to a risk-budget ceiling on every asset:
+
+$$
+\max_{w}\ \frac{w^\top \mu - r_f}{\sqrt{w^\top \Sigma w}}
+\quad \text{s.t.} \quad
+\mathbf{1}^\top w = 1,\quad w \ge 0,\quad
+\frac{w_i (\Sigma w)_i}{w^\top \Sigma w} \le \frac{k}{N}\ \ \forall i
+$$
+
+Setting $k = 1$ recovers equal risk contribution, and $k \to \infty$ recovers unconstrained MVO. The paper uses $k = 2$, which caps each asset at about 28.6% of portfolio risk. The constraint set is non-convex, so it is solved with SLSQP from inverse-volatility starting weights.
+
+## Setup
+
+| | |
+|---|---|
+| **Universe** | SPY, QQQ, TLT, IEF, TIP, GLD, VNQ |
+| **Sample** | Monthly returns, Feb 2005 – Mar 2026; out-of-sample Apr 2008 – Mar 2026 (216 months) |
+| **Estimation** | Rolling 36-month sample mean and covariance, monthly rebalancing, long-only |
+| **Solvers** | MVO with cvxpy (CLARABEL); ERC and RC-MVO with SciPy SLSQP |
+| **Regimes** | Global Financial Crisis, post-GFC bull market, COVID-19, 2022 rate hikes, 2024–26 AI rally |
+
+## Results
+
+### Frictionless walk-forward backtest
+
+| Metric | MVO | RC-MVO | ERC |
+|---|---:|---:|---:|
+| Annualized return | 10.29% | 9.72% | 7.04% |
+| Annualized volatility | 10.71% | 9.17% | 7.75% |
+| Sharpe ratio | 0.843 | **0.922** | 0.737 |
+| Maximum drawdown | 23.85% | **19.33%** | 19.53% |
+| Average monthly turnover | 13.47% | 9.42% | 1.78% |
+| Concentration (HHI) | 0.522 | 0.294 | 0.175 |
+
+### Realistic execution (QuantConnect)
+
+| Metric | MVO | RC-MVO | ERC |
+|---|---:|---:|---:|
+| Total return | 169.4% | 228.6% | **356.3%** |
+| Sharpe ratio | 0.214 | 0.309 | **0.552** |
+| Maximum drawdown | 46.6% | 43.4% | **26.9%** |
+| Total fees | $5,026 | $3,434 | **$1,262** |
+
+Tearsheets: [MVO](QCAPI_report_1.pdf) · [ERC](QCAPI_report_2.pdf) · [RC-MVO](QCAPI_report_3.pdf)
+
+### What the regimes show
+
+- **ERC** held up best in the Global Financial Crisis, when stocks and bonds diversified each other as designed.
+- **The 2022 rate-hiking cycle** broke that assumption: stocks and long Treasuries fell together, and ERC lost 3.4% a year with a Sharpe of −0.57.
+- **MVO** did best in the 2024–26 AI rally, when concentrating in QQQ paid off (30.9% a year, Sharpe 2.32).
+
+<div align="center">
+<img src="fig_wealth.png" width="49%" alt="Out-of-sample cumulative wealth">
+<img src="fig_riskcontrib.png" width="49%" alt="Risk contributions by construction method">
+<br>
+<img src="fig_rcmvo_weights.png" width="70%" alt="Portfolio weights over time for MVO, RC-MVO, and ERC">
+</div>
+
+## Repository contents
+
+```
+MPT_Alternatives_Research.pdf   the paper
+QRM_Paper_Theory.ipynb          walk-forward backtest, parameter estimation, and every figure
+QCAPI_report_1.pdf              QuantConnect tearsheet: MVO
+QCAPI_report_2.pdf              QuantConnect tearsheet: ERC
+QCAPI_report_3.pdf              QuantConnect tearsheet: RC-MVO
+fig_*.png                       figures generated by the notebook
+mvo_*, erc_*, rc_mvo_*.png      QuantConnect equity curves and summaries
+```
+
+## Reproduce
+
+```bash
+pip install numpy pandas scipy cvxpy matplotlib yfinance jupyter
+jupyter notebook QRM_Paper_Theory.ipynb
+```
+
+The notebook downloads prices from Yahoo Finance. The realistic-execution results were produced in QuantConnect's backtesting environment, which requires a QuantConnect account.
+
+## About
+
+Final research paper for FINTECH 545, Quantitative Risk Management, at Duke University (Spring 2026).
+
+## Citation
+
+```bibtex
+@misc{penagos2026portfolio,
+  author       = {Penagos, F. J.},
+  title        = {Modern Portfolio Optimization Approaches: Tradeoffs Between Mean-Variance, Risk Parity, and Hybrid Models},
+  year         = {2026},
+  institution  = {Duke University, Pratt School of Engineering},
+  howpublished = {\url{https://github.com/felipejpenagos/Portfolio-Optimization-Theory}}
+}
+```
